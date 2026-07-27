@@ -2,18 +2,33 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#f2ede3" />
   <title>Card Ledger</title>
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script>
+    // @babel/preset-react 7.22+ defaults to runtime:'automatic', which emits
+    // import statements incompatible with non-module UMD scripts. Force classic.
+    Babel.registerPreset('react-classic', {
+      presets: [[Babel.availablePresets['react'], { runtime: 'classic' }]]
+    });
+  </script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-  <style>body{margin:0;padding:0;}</style>
+  <script src="https://unpkg.com/tesseract.js@5/dist/tesseract.min.js"></script>
+  <style>
+    html,body{margin:0;padding:0;overflow-x:hidden;-webkit-text-size-adjust:100%;}
+    body{overscroll-behavior-y:contain;}
+    *{-webkit-tap-highlight-color:transparent;}
+  </style>
 </head>
 <body>
   <div id="root"></div>
 
-  <script type="text/babel" data-presets="react">
+  <script type="text/babel" data-presets="react-classic">
     const { useState, useEffect, useRef, useCallback } = React;
 
     const _ic = (d) => ({ size=24, strokeWidth=2, className="", style }) => (
@@ -24,7 +39,6 @@
     );
     const Camera          = _ic('<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>');
     const Upload          = _ic('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>');
-    const FileUp          = _ic('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M12 12v6"/><path d="m9 15 3-3 3 3"/>');
     const FileSpreadsheet = _ic('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M8 13h2"/><path d="M14 13h2"/><path d="M8 17h2"/><path d="M14 17h2"/><path d="M8 9h8"/>');
     const X               = _ic('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>');
     const Loader2         = _ic('<path d="M21 12a9 9 0 1 1-6.219-8.56"/>');
@@ -33,37 +47,29 @@
     const Eraser          = _ic('<path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/>');
     const FolderOpen      = _ic('<path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>');
     const FilePlus        = _ic('<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 15h6"/><path d="M12 12v6"/>');
-    const Save            = _ic('<path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/>');
+    const Download        = _ic('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>');
+    const ChevronDown     = _ic('<polyline points="6 9 12 15 18 9"/>');
+    const ChevronUp       = _ic('<polyline points="18 15 12 9 6 15"/>');
+    const Trash           = _ic('<polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>');
 
     const FIELDS = ["Name", "Company", "Title", "Phone", "Email", "Address", "Website"];
     const MAX_DIM = 1500;
     const CONCURRENCY = 3;
     const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+    const XLSX_OPTS = {
+      types: [{ description: "Excel Workbook", accept: { "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"] } }],
+    };
 
-    // ── IndexedDB helpers for persisting the file handle across reloads ──
-    function openMetaDB() {
-      return new Promise((res, rej) => {
-        const req = indexedDB.open("CardLedgerMeta", 1);
-        req.onupgradeneeded = e => e.target.result.createObjectStore("meta");
-        req.onsuccess = e => res(e.target.result);
-        req.onerror = () => rej(req.error);
-      });
-    }
-    async function dbPut(key, val) {
-      const db = await openMetaDB();
-      return new Promise((res, rej) => {
-        const tx = db.transaction("meta", "readwrite");
-        tx.objectStore("meta").put(val, key);
-        tx.oncomplete = res; tx.onerror = () => rej(tx.error);
-      });
-    }
-    async function dbGet(key) {
-      const db = await openMetaDB();
-      return new Promise((res, rej) => {
-        const tx = db.transaction("meta", "readonly");
-        const req = tx.objectStore("meta").get(key);
-        req.onsuccess = () => res(req.result); req.onerror = () => rej(req.error);
-      });
+    // ── responsive hook ──
+    function useIsMobile() {
+      const [m, setM] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 760px)").matches);
+      useEffect(() => {
+        const mq = window.matchMedia("(max-width: 760px)");
+        const h = e => setM(e.matches);
+        mq.addEventListener ? mq.addEventListener("change", h) : mq.addListener(h);
+        return () => { mq.removeEventListener ? mq.removeEventListener("change", h) : mq.removeListener(h); };
+      }, []);
+      return m;
     }
 
     // ── xlsx helpers ──
@@ -85,6 +91,30 @@
           return o;
         })
         .filter(o => FIELDS.some(f => o[f]));
+    }
+    function buildXlsxBytes(cards) {
+      const wb = cardsToWorkbook(cards);
+      return XLSX.write(wb, { type: "array", bookType: "xlsx" });
+    }
+
+    // ── localStorage helpers ──
+    function lsSave(cards) {
+      try {
+        const recs = cards.map(c => {
+          const o = { id: c.id, status: (c.status === "processing" || c.status === "queued") ? "review" : c.status };
+          FIELDS.forEach(f => (o[f] = c[f] || ""));
+          return o;
+        });
+        localStorage.setItem("cl:cards", JSON.stringify(recs));
+      } catch (_) {}
+    }
+    function lsLoad() {
+      try {
+        const raw = localStorage.getItem("cl:cards");
+        if (!raw) return [];
+        const recs = JSON.parse(raw);
+        return Array.isArray(recs) ? recs.map(x => ({ ...x, thumb: null })) : [];
+      } catch (_) { return []; }
     }
 
     // ── image resize ──
@@ -110,43 +140,217 @@
       });
     }
 
-    const PROMPT = `You are extracting structured data from a business / visiting card image. Return ONLY a raw JSON object — no markdown, no code fences, no commentary — with exactly these keys: "Name", "Company", "Title", "Phone", "Email", "Address", "Website".
-Rules:
-- Use "" (empty string) for any field that is not present on the card.
-- Name = the person's full name only.
-- Title = job title / designation (e.g. "Co-Founder & CTO").
-- Company = organisation name only; ignore taglines and slogans.
-- Phone = every phone / mobile / tel number found, joined by "; ", keeping country codes and "+".
-- Email = the email address.
-- Website = website or domain; if it is a bare domain, prefix it with "https://".
-- Address = the full postal address collapsed into one single line.
-Respond with the JSON object and nothing else.`;
+    // ── Image preprocessing: grayscale + contrast stretch + 2× upscale + dark-bg inversion ──
+    function preprocessForOCR(dataUrl) {
+      return new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => {
+          const scale = Math.min(3, Math.max(2, 2400 / Math.max(img.width, img.height)));
+          const w = Math.round(img.width * scale);
+          const h = Math.round(img.height * scale);
+          const c = document.createElement("canvas");
+          c.width = w; c.height = h;
+          const ctx = c.getContext("2d");
+          ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h);
+          ctx.drawImage(img, 0, 0, w, h);
 
-    async function extractCard(base64, mediaType, apiKey) {
+          const id = ctx.getImageData(0, 0, w, h);
+          const d  = id.data;
+
+          for (let i = 0; i < d.length; i += 4) {
+            const g = 0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2];
+            d[i] = d[i+1] = d[i+2] = g;
+          }
+
+          const samples = [];
+          for (let i = 0; i < d.length; i += 4) samples.push(d[i]);
+          samples.sort((a, b) => a - b);
+          const lo = samples[Math.floor(samples.length * 0.05)];
+          const hi = samples[Math.floor(samples.length * 0.95)];
+          const range = (hi - lo) || 1;
+
+          for (let i = 0; i < d.length; i += 4) {
+            const v = Math.min(255, Math.max(0, Math.round(((d[i] - lo) / range) * 255)));
+            d[i] = d[i+1] = d[i+2] = v;
+          }
+
+          const median = samples[Math.floor(samples.length * 0.5)];
+          if (median < 100) {
+            for (let i = 0; i < d.length; i += 4) {
+              d[i] = d[i+1] = d[i+2] = 255 - d[i];
+            }
+          }
+
+          ctx.putImageData(id, 0, 0);
+          resolve(c.toDataURL("image/png"));
+        };
+        img.src = dataUrl;
+      });
+    }
+
+    // ── Tesseract worker (shared) ──
+    let _ocrWorker = null;
+    async function getOCRWorker() {
+      if (!_ocrWorker) {
+        _ocrWorker = await Tesseract.createWorker("eng", 1, {
+          workerPath: "https://unpkg.com/tesseract.js@5/dist/worker.min.js",
+          langPath:   "https://tessdata.projectnaptha.com/4.0.0",
+          corePath:   "https://unpkg.com/tesseract.js-core@5/tesseract-core-simd-lstm.wasm.js",
+        });
+      }
+      return _ocrWorker;
+    }
+
+    const TITLE_KW   = ["ceo","cto","cfo","coo","vp","vice president","vice-president","president","director","manager","engineer","founder","co-founder","head of","head -","lead","sr.","senior","principal","architect","consultant","analyst","developer","designer","officer","executive","partner","associate","specialist","advisor","proprietor","managing","md","gm","dgm","agm","dgm","chairman","trustee","secretary","treasurer","incharge","in-charge","sales","marketing","business development"];
+    const COMPANY_KW = ["inc.","inc","ltd","llc","llp","pvt.","pvt","private","limited","company","group","solutions","services","technologies","technology","tech","systems","global","international","enterprises","ventures","studio","labs","agency","associates","consulting","consultants","industries","infrastructure","finance","hospital","clinic","school","college","university","bank","realty","builders","construction","media","publications"];
+    const ADDR_KW    = ["street","st.","avenue","ave","road","rd.","rd","lane","ln","drive","dr","blvd","floor","suite","apt","flat","plot","house","no.","nagar","colony","sector","phase","marg","cross","layout","extension","district","dist","pin","zip","city","state","country","taluk","tehsil","near","opposite","opp","behind","above","below","next to","beside","landmark"];
+
+    function parseFromData(data) {
+      const raw = data.text || "";
+
+      const email = (raw.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/i) || [])[0] || "";
+
+      const phoneRe = /(?:\+\d{1,3}[\s\-.]?)?(?:\(?\d{2,5}\)?[\s\-.]?)?\d{3,5}[\s\-.]?\d{3,5}[\s\-.]?\d{0,5}/g;
+      const phones  = [...new Set(
+        (raw.match(phoneRe) || [])
+          .map(p => p.trim().replace(/[\s\-\.]+$/, ""))
+          .filter(p => p.replace(/\D/g,"").length >= 7 && p.replace(/\D/g,"").length <= 15)
+      )];
+      const phone = phones.join("; ");
+
+      const webRe   = /(?:https?:\/\/)?(?:www\.)?[\w\-]+\.(?:com|org|net|io|co\.in|co|in|biz|info|edu|gov|me|app|dev|tech|ai|online|store|shop)(?:\/[^\s,)]*)?/gi;
+      const webHits = (raw.match(webRe) || []).filter(w => !w.includes("@") && !w.match(/^\d/));
+      const website = webHits[0] ? (webHits[0].startsWith("http") ? webHits[0] : "https://" + webHits[0]) : "";
+
+      const tLines = (data.lines || [])
+        .map(l => ({
+          text: l.text.replace(/\n/g,"").trim(),
+          h:    l.bbox.y1 - l.bbox.y0,
+          y:    l.bbox.y0,
+          conf: l.confidence || 0,
+        }))
+        .filter(l => l.text.length > 1 && l.conf > 15);
+
+      const isConsumed = t => {
+        const lo = t.toLowerCase();
+        if (email && lo.includes(email.toLowerCase())) return true;
+        if (phones.some(p => lo.includes(p.replace(/\D/g,"").slice(0,7)))) return true;
+        if (webHits[0]) {
+          const bare = webHits[0].replace(/https?:\/\//,"").replace(/^www\./,"").slice(0,10);
+          if (lo.includes(bare.toLowerCase())) return true;
+        }
+        return false;
+      };
+      const rest = tLines.filter(l => !isConsumed(l.text));
+      const bySize = [...rest].sort((a, b) => b.h - a.h);
+
+      let name = "", title = "", company = "";
+      const addrParts = [];
+      const usedTexts = new Set();
+
+      for (const l of rest) {
+        const lo = l.text.toLowerCase();
+        if (!title && TITLE_KW.some(k => lo.includes(k))) {
+          title = l.text; usedTexts.add(l.text); break;
+        }
+      }
+
+      for (const l of rest) {
+        if (usedTexts.has(l.text)) continue;
+        const lo = l.text.toLowerCase();
+        const words = l.text.split(/\s+/);
+        if (COMPANY_KW.some(k => lo.includes(k)) ||
+            (words.length >= 1 && words.length <= 7 &&
+             l.text === l.text.toUpperCase() && /[A-Z]/.test(l.text) && l.text.length > 3)) {
+          company = l.text; usedTexts.add(l.text); break;
+        }
+      }
+
+      for (const l of rest) {
+        if (usedTexts.has(l.text)) continue;
+        const words = l.text.split(/\s+/);
+        if (words.length >= 1 && words.length <= 5 &&
+            words.every(w => /^[A-Z][a-z]+$/.test(w) || /^[A-Z]{2,4}$/.test(w))) {
+          name = l.text; usedTexts.add(l.text); break;
+        }
+      }
+
+      if (!name || !company) {
+        for (const l of bySize) {
+          if (usedTexts.has(l.text)) continue;
+          if (!/\d/.test(l.text) && l.text.split(/\s+/).length <= 6) {
+            if (!name) { name = l.text; usedTexts.add(l.text); }
+            else if (!company) { company = l.text; usedTexts.add(l.text); break; }
+          }
+        }
+      }
+
+      for (const l of rest) {
+        if (usedTexts.has(l.text)) continue;
+        const lo = l.text.toLowerCase();
+        if (ADDR_KW.some(k => lo.includes(k)) ||
+            /\b\d{3,}\b/.test(l.text) ||
+            /[A-Z]{2}\s*[-–]\s*\d{6}/.test(l.text)) {
+          addrParts.push(l.text);
+          usedTexts.add(l.text);
+        }
+      }
+
+      const _rawLines = tLines.map(l => l.text).filter(t => t.length > 1);
+      return { Name: name, Company: company, Title: title, Phone: phone,
+               Email: email, Address: addrParts.join(", "), Website: website, _rawLines };
+    }
+
+    const CARD_PROMPT = `Extract data from this business card image. Return ONLY a raw JSON object with exactly these keys: "Name","Company","Title","Phone","Email","Address","Website".
+Rules: use "" for any missing field. Name = full person name only. Title = job designation/role. Company = organisation name only (no taglines). Phone = all numbers joined by "; " keeping country codes. Email = email address. Website = full URL (prefix bare domains with https://). Address = full postal address on one line.`;
+
+    async function extractWithGemini(base64, mediaType, key) {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(key)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [
+              { inlineData: { mimeType: mediaType, data: base64 } },
+              { text: CARD_PROMPT }
+            ]}],
+            generationConfig: { temperature: 0, maxOutputTokens: 512 },
+          }),
+        }
+      );
+      if (!res.ok) { const b = await res.text().catch(()=>""); throw new Error("Gemini " + res.status + ": " + b.slice(0,120)); }
+      const json = await res.json();
+      const text = (json.candidates?.[0]?.content?.parts || []).map(p => p.text||"").join("\n");
+      return parseJsonResponse(text);
+    }
+
+    async function extractWithClaude(base64, mediaType, key) {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": apiKey,
+          "x-api-key": key,
           "anthropic-version": "2023-06-01",
           "anthropic-dangerous-direct-browser-access": "true",
         },
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
-          max_tokens: 1000,
+          max_tokens: 512,
           messages: [{ role: "user", content: [
             { type: "image", source: { type: "base64", media_type: mediaType, data: base64 } },
-            { type: "text", text: PROMPT },
+            { type: "text",  text: CARD_PROMPT },
           ]}],
         }),
       });
-      if (!res.ok) {
-        const body = await res.text().catch(() => "");
-        throw new Error("API " + res.status + (body ? ": " + body.slice(0, 120) : ""));
-      }
-      const data = await res.json();
-      const text = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("\n");
-      const clean = text.replace(/```json/gi, "").replace(/```/g, "").trim();
+      if (!res.ok) { const b = await res.text().catch(()=>""); throw new Error("Claude " + res.status + ": " + b.slice(0,120)); }
+      const json = await res.json();
+      const text = (json.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("\n");
+      return parseJsonResponse(text);
+    }
+
+    function parseJsonResponse(text) {
+      const clean = text.replace(/```json/gi,"").replace(/```/g,"").trim();
       let parsed;
       try { parsed = JSON.parse(clean); }
       catch {
@@ -159,16 +363,35 @@ Respond with the JSON object and nothing else.`;
       return out;
     }
 
+    async function extractWithTesseract(dataUrl) {
+      const worker = await getOCRWorker();
+      await worker.setParameters({ tessedit_pageseg_mode: "11" });
+      let data;
+      try { const p = await preprocessForOCR(dataUrl); ({ data } = await worker.recognize(p)); }
+      catch (_) { ({ data } = await worker.recognize(dataUrl)); }
+      const result = parseFromData(data);
+      if (Object.values(result).filter(Boolean).length < 2) {
+        await worker.setParameters({ tessedit_pageseg_mode: "3" });
+        try { const p = await preprocessForOCR(dataUrl); ({ data } = await worker.recognize(p)); }
+        catch (_) { ({ data } = await worker.recognize(dataUrl)); }
+        return parseFromData(data);
+      }
+      return result;
+    }
+
+    async function extractCard(dataUrl, base64, mediaType, apiKey) {
+      const k = (apiKey || "").trim();
+      if (k.startsWith("AIza"))    return extractWithGemini(base64, mediaType, k);
+      if (k.startsWith("sk-ant-")) return extractWithClaude(base64, mediaType, k);
+      return extractWithTesseract(dataUrl);
+    }
+
     async function mapLimit(items, limit, worker) {
       let i = 0;
       await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async () => {
         while (i < items.length) { const idx = i++; await worker(items[idx]); }
       }));
     }
-
-    const XLSX_OPTS = {
-      types: [{ description: "Excel Workbook", accept: { "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"] } }],
-    };
 
     const css = `
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
@@ -185,7 +408,6 @@ Respond with the JSON object and nothing else.`;
 }
 .cl-root *{box-sizing:border-box;}
 .cl-wrap{max-width:1120px;margin:0 auto;}
-
 .cl-mast{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;
   border-bottom:2px solid var(--ink);padding-bottom:14px;position:relative;}
 .cl-mast::after{content:"";position:absolute;left:0;right:0;bottom:-6px;height:1px;background:var(--ink);opacity:.35;}
@@ -194,40 +416,34 @@ Respond with the JSON object and nothing else.`;
 .cl-sub{font-family:var(--m);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);margin-top:8px;}
 .cl-mark{display:flex;align-items:center;gap:9px;font-family:var(--m);font-size:11px;letter-spacing:.12em;color:var(--ink-soft);text-transform:uppercase;}
 
-/* file setup banner */
-.cl-setup{margin-top:24px;border:2px dashed var(--accent);border-radius:6px;background:var(--accent-2);
-  padding:32px 24px;text-align:center;}
-.cl-setup .t{font-family:var(--d);font-size:22px;font-weight:500;margin-bottom:16px;}
-.cl-setup .row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
-
-/* file status bar */
 .cl-filebar{display:flex;align-items:center;gap:10px;margin-top:18px;padding:10px 14px;
   border:1.5px solid var(--line-2);border-radius:4px;background:rgba(255,255,255,.5);flex-wrap:wrap;}
 .cl-filebar .fname{font-family:var(--m);font-size:12.5px;font-weight:600;color:var(--ink);flex:1;min-width:0;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .cl-filebar .badge{font-family:var(--m);font-size:10px;letter-spacing:.08em;text-transform:uppercase;
-  padding:3px 8px;border-radius:99px;white-space:nowrap;}
+  padding:3px 9px;border-radius:99px;white-space:nowrap;flex-shrink:0;}
 .badge-saving{background:#e8e0d0;color:var(--ink-soft);}
 .badge-saved{background:#d4ead9;color:var(--ok);}
-.badge-error{background:#f5d5d2;color:var(--err);}
-.cl-filebar .switch{font-family:var(--m);font-size:11px;color:var(--ink-soft);cursor:pointer;text-decoration:underline;
-  text-underline-offset:2px;border:none;background:none;padding:0;}
-.cl-filebar .switch:hover{color:var(--accent);}
+.badge-error{background:#f5d5d2;color:var(--err);max-width:300px;overflow:hidden;text-overflow:ellipsis;cursor:help;}
+.cl-filebar .sw{font-family:var(--m);font-size:11px;color:var(--ink-soft);cursor:pointer;
+  text-decoration:underline;text-underline-offset:2px;border:none;background:none;padding:6px 4px;flex-shrink:0;}
+.cl-filebar .sw:hover{color:var(--accent);}
+
 
 .cl-apibar{display:flex;align-items:center;gap:10px;margin:12px 0 0;padding:10px 14px;
   border:1.5px solid var(--line-2);border-radius:4px;background:rgba(255,255,255,.4);flex-wrap:wrap;}
 .cl-apibar label{font-family:var(--m);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);white-space:nowrap;}
-.cl-apibar input{flex:1;min-width:220px;font-family:var(--m);font-size:12.5px;padding:7px 10px;
+.cl-apibar input{flex:1;min-width:200px;font-family:var(--m);font-size:14px;padding:9px 10px;
   border:1.5px solid var(--line-2);border-radius:2px;background:var(--paper);color:var(--ink);outline:none;}
 .cl-apibar input:focus{border-color:var(--accent);}
 .cl-apibar .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
-.dot-ok{background:var(--ok);}.dot-no{background:var(--err);}
+.dot-ok{background:var(--ok);}.dot-warn{background:var(--warn);}.dot-no{background:var(--err);}
 .cl-apibar .hint{font-family:var(--m);font-size:10px;color:var(--ink-soft);letter-spacing:.04em;}
 
 .cl-bar{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 0;}
-.cl-btn{display:inline-flex;align-items:center;gap:8px;font-family:var(--m);font-size:12.5px;font-weight:500;
+.cl-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-family:var(--m);font-size:12.5px;font-weight:500;
   letter-spacing:.04em;padding:10px 15px;border:1.5px solid var(--ink);background:var(--ink);color:var(--paper);
-  cursor:pointer;transition:transform .12s,box-shadow .12s,background .12s;border-radius:2px;}
+  cursor:pointer;transition:transform .12s,box-shadow .12s,background .12s;border-radius:2px;min-height:42px;}
 .cl-btn:hover{transform:translateY(-1px);box-shadow:3px 3px 0 var(--accent);}
 .cl-btn:active{transform:none;box-shadow:none;}
 .cl-btn.ghost{background:transparent;color:var(--ink);}
@@ -249,8 +465,9 @@ Respond with the JSON object and nothing else.`;
 .cl-stats b{color:var(--ink);font-weight:600;}
 .cl-stats .rev{color:var(--accent);}
 
+/* ═══════════════ DESKTOP TABLE ═══════════════ */
 .cl-tablewrap{margin-top:8px;border:1.5px solid var(--ink);border-radius:4px;overflow:auto;background:var(--card);
-  box-shadow:5px 5px 0 rgba(33,28,23,.07);}
+  box-shadow:5px 5px 0 rgba(33,28,23,.07);-webkit-overflow-scrolling:touch;}
 table.cl-tbl{border-collapse:collapse;width:100%;min-width:920px;}
 .cl-tbl thead th{font-family:var(--m);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);
   text-align:left;padding:11px 12px;background:var(--paper-2);border-bottom:1.5px solid var(--ink);white-space:nowrap;font-weight:600;}
@@ -259,13 +476,11 @@ table.cl-tbl{border-collapse:collapse;width:100%;min-width:920px;}
 .cl-tbl tbody tr:hover{background:rgba(197,57,31,.035);}
 .cl-tbl td{padding:6px 8px;vertical-align:middle;}
 @keyframes rowin{from{opacity:0;transform:translateY(-5px);}to{opacity:1;transform:none;}}
-
 .cl-cell input{width:100%;min-width:96px;border:none;background:transparent;font-family:var(--m);font-size:12.5px;
   color:var(--ink);padding:6px;border-bottom:1px solid transparent;outline:none;border-radius:2px;}
 .cl-cell input::placeholder{color:#c2b8a6;}
 .cl-cell input:focus{border-bottom:1px solid var(--accent);background:#fff;}
 .cl-cell.name input{font-weight:600;}
-
 .cl-thumb{position:relative;width:52px;height:34px;border:1px solid var(--line-2);border-radius:3px;overflow:hidden;
   background:var(--paper-2);display:flex;align-items:center;justify-content:center;}
 .cl-thumb img{width:100%;height:100%;object-fit:cover;}
@@ -273,7 +488,6 @@ table.cl-tbl{border-collapse:collapse;width:100%;min-width:920px;}
 .cl-scan::after{content:"";position:absolute;left:0;right:0;height:2px;background:var(--accent);
   box-shadow:0 0 8px var(--accent);animation:scan 1.05s ease-in-out infinite;}
 @keyframes scan{0%{top:2%;}50%{top:92%;}100%{top:2%;}}
-
 .cl-dot{width:9px;height:9px;border-radius:50%;display:inline-block;}
 .cl-statuscell{display:flex;align-items:center;gap:7px;font-family:var(--m);font-size:10px;letter-spacing:.06em;
   color:var(--ink-soft);text-transform:uppercase;white-space:nowrap;}
@@ -281,108 +495,221 @@ table.cl-tbl{border-collapse:collapse;width:100%;min-width:920px;}
 .s-review .cl-dot{background:var(--warn);}
 .s-error .cl-dot{background:var(--err);}
 .s-processing .cl-dot,.s-queued .cl-dot{background:var(--ink-soft);}
-
-.cl-x{border:none;background:transparent;cursor:pointer;color:var(--ink-soft);padding:6px;display:flex;border-radius:3px;}
+.cl-x{border:none;background:transparent;cursor:pointer;color:var(--ink-soft);padding:8px;display:flex;border-radius:3px;
+  min-width:36px;min-height:36px;align-items:center;justify-content:center;}
 .cl-x:hover{color:var(--err);background:var(--accent-2);}
-
 .cl-empty{padding:54px 20px;text-align:center;}
 .cl-empty .ico{color:var(--line-2);margin-bottom:14px;}
 .cl-empty .t{font-family:var(--d);font-size:22px;font-weight:500;}
 .cl-empty .s{font-family:var(--m);font-size:12px;color:var(--ink-soft);margin-top:7px;letter-spacing:.04em;}
-
 .cl-foot{margin-top:14px;font-family:var(--m);font-size:10.5px;color:var(--ink-soft);letter-spacing:.04em;line-height:1.6;}
 .spin{animation:sp 1s linear infinite;}
 @keyframes sp{to{transform:rotate(360deg);}}
 .cl-err-msg{font-family:var(--m);font-size:9.5px;color:var(--err);margin-top:2px;}
+
+/* Raw OCR helper panel — desktop */
+.cl-rawrow td{padding:0 !important;border-bottom:2px solid var(--accent) !important;}
+.cl-rawpanel{display:flex;gap:16px;padding:14px 16px;background:var(--paper-2);align-items:flex-start;flex-wrap:wrap;}
+.cl-rawimg{width:120px;height:80px;object-fit:cover;border:1px solid var(--line-2);border-radius:3px;flex-shrink:0;}
+.cl-rawtext{flex:1;min-width:280px;}
+.cl-rawlabel{font-family:var(--m);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:8px;}
+.cl-qfwrap{display:flex;flex-direction:column;gap:5px;}
+.cl-qfrow{display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
+.cl-qfline{font-family:var(--m);font-size:12px;color:var(--ink);background:#fff;border:1px solid var(--line-2);
+  padding:3px 8px;border-radius:3px;min-width:120px;flex:1;}
+.cl-qfbtn{font-family:var(--m);font-size:10px;letter-spacing:.06em;padding:5px 9px;border:1px solid var(--line-2);
+  background:var(--paper);color:var(--ink-soft);border-radius:2px;cursor:pointer;white-space:nowrap;flex-shrink:0;
+  min-height:30px;}
+.cl-qfbtn:hover{background:var(--accent);color:#fff;border-color:var(--accent);}
+
+/* ═══════════════ MOBILE CARDS ═══════════════ */
+.cl-mcards{display:flex;flex-direction:column;gap:14px;margin-top:8px;}
+.cl-mcard{border:1.5px solid var(--ink);border-radius:5px;background:var(--card);
+  box-shadow:3px 3px 0 rgba(33,28,23,.07);overflow:hidden;animation:rowin .35s ease both;}
+.cl-mcard-head{display:flex;align-items:center;gap:12px;padding:12px;background:var(--paper-2);
+  border-bottom:1.5px solid var(--ink);}
+.cl-mcard-thumb{position:relative;width:56px;height:40px;border:1px solid var(--line-2);border-radius:3px;
+  overflow:hidden;background:var(--paper);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.cl-mcard-thumb img{width:100%;height:100%;object-fit:cover;}
+.cl-mcard-thumb .ph{color:#bdb29f;}
+.cl-mcard-status{flex:1;min-width:0;}
+.cl-mcard-status .cl-statuscell{font-size:10.5px;}
+.cl-mcard-title{font-family:var(--d);font-size:16px;font-weight:600;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;line-height:1.1;}
+.cl-mcard-title.empty{font-style:italic;color:var(--ink-soft);font-weight:400;font-size:13px;}
+.cl-mcard-actions{display:flex;gap:2px;flex-shrink:0;}
+.cl-mcard-body{padding:6px 12px 12px;}
+.cl-mfield{display:flex;flex-direction:column;padding:8px 0;border-bottom:1px solid var(--line);}
+.cl-mfield:last-child{border-bottom:none;}
+.cl-mfield-label{font-family:var(--m);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--ink-soft);margin-bottom:4px;font-weight:600;}
+.cl-mfield-input{width:100%;border:none;background:transparent;font-family:var(--m);font-size:15px;
+  color:var(--ink);padding:6px 0;border-bottom:1px solid transparent;outline:none;
+  -webkit-appearance:none;appearance:none;min-height:32px;}
+.cl-mfield-input::placeholder{color:#c2b8a6;}
+.cl-mfield-input:focus{border-bottom:1px solid var(--accent);}
+.cl-mfield.name .cl-mfield-input{font-weight:600;font-size:16px;}
+.cl-mraw{padding:12px;background:var(--paper-2);border-top:2px solid var(--accent);}
+.cl-mraw-label{font-family:var(--m);font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--ink-soft);margin-bottom:10px;line-height:1.5;}
+.cl-mraw-item{margin-bottom:10px;padding:8px;background:#fff;border:1px solid var(--line-2);border-radius:3px;}
+.cl-mraw-item:last-child{margin-bottom:0;}
+.cl-mraw-text{font-family:var(--m);font-size:13px;color:var(--ink);margin-bottom:8px;word-break:break-word;}
+.cl-mraw-btns{display:flex;flex-wrap:wrap;gap:4px;}
+.cl-mraw-btns .cl-qfbtn{flex:1;min-width:60px;font-size:10px;padding:6px 8px;min-height:32px;}
+.cl-mcard-expand{width:100%;padding:10px;border:none;background:var(--paper-2);border-top:1px solid var(--line);
+  font-family:var(--m);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;min-height:40px;}
+.cl-mcard-expand:hover{background:var(--accent-2);color:var(--ink);}
+
+/* ═══════════════ RESPONSIVE BREAKPOINTS ═══════════════ */
+@media (max-width: 760px){
+  .cl-root{padding:18px 12px 40px;}
+  .cl-mast{flex-direction:column;align-items:flex-start;gap:8px;padding-bottom:12px;}
+  .cl-title{font-size:38px;}
+  .cl-sub{font-size:10px;letter-spacing:.14em;}
+  .cl-mark{font-size:10px;letter-spacing:.08em;}
+  .cl-filebar{padding:10px 12px;gap:8px;}
+  .cl-filebar .fname{flex:1 1 100%;order:-1;font-size:13px;}
+  .cl-filebar .badge{order:0;}
+  .cl-filebar .cl-btn{flex:1;min-width:0;}
+  .cl-filebar .sw{flex:0 0 auto;font-size:12px;}
+  .cl-apibar{padding:10px 12px;gap:8px;}
+  .cl-apibar label{flex:0 0 auto;}
+  .cl-apibar input{flex:1 1 100%;min-width:0;font-size:15px;padding:11px 12px;}
+  .cl-apibar .hint{flex:1 1 100%;font-size:10px;line-height:1.5;}
+  .cl-bar{gap:8px;}
+  .cl-bar .cl-btn{flex:1 1 calc(50% - 4px);min-width:0;padding:12px 10px;font-size:12px;}
+  .cl-bar .cl-btn.danger{flex:1 1 100%;}
+  .cl-drop{padding:22px 14px;}
+  .cl-drop-t{font-size:16px;}
+  .cl-drop-s{font-size:11px;}
+  .cl-stats{gap:16px;margin:14px 2px 6px;font-size:10.5px;}
+  .cl-foot{font-size:10.5px;line-height:1.65;}
+  .cl-empty{padding:40px 16px;}
+  .cl-empty .t{font-size:19px;}
+  .cl-empty .s{font-size:11.5px;}
+}
+
+@media (max-width: 400px){
+  .cl-root{padding:14px 10px 40px;}
+  .cl-title{font-size:32px;}
+  .cl-bar .cl-btn{flex:1 1 100%;}
+  .cl-mcard-head{padding:10px;gap:10px;}
+  .cl-mcard-thumb{width:48px;height:34px;}
+  .cl-mcard-title{font-size:15px;}
+  .cl-mcard-body{padding:4px 10px 10px;}
+  .cl-mraw-btns .cl-qfbtn{flex:1 1 calc(33.33% - 4px);}
+}
+
+/* Prevent iOS zoom on focus */
+@supports (-webkit-touch-callout: none) {
+  .cl-mfield-input,.cl-apibar input,.cl-cell input{font-size:16px !important;}
+}
 `;
 
     function CardLedger() {
-      const [cards, setCards]       = useState([]);
-      const [loaded, setLoaded]     = useState(false);
-      const [over, setOver]         = useState(false);
-      const [fileHandle, setFileHandle] = useState(null);
-      const [fileName, setFileName] = useState(null);
-      const [saveStatus, setSaveStatus] = useState(null); // 'saving'|'saved'|'error'
-      const [apiKey, setApiKey]     = useState(() => localStorage.getItem("cl:apikey") || "");
-      const batchRef  = useRef(null);
-      const camRef    = useRef(null);
-      const saveTimer = useRef(null);
+      const [cards, setCards]           = useState([]);
+      const [loaded, setLoaded]         = useState(false);
+      const [over, setOver]             = useState(false);
+      const [fileName, setFileName]     = useState(null);
+      const [saveStatus, setSaveStatus] = useState(null);
+      const [dirty, setDirty]           = useState(false);
+      const [expandedId, setExpandedId] = useState(null);
+      const [apiKey, setApiKey]         = useState(() => localStorage.getItem("cl:apikey") || "");
+      const batchRef = useRef(null);
+      const camRef   = useRef(null);
+      const isMobile = useIsMobile();
 
-      // ── restore file handle from IndexedDB on mount ──
       useEffect(() => {
-        (async () => {
-          try {
-            const h = await dbGet("fileHandle");
-            if (h) {
-              // request permission silently; if denied user can re-open manually
-              const perm = await h.queryPermission({ mode: "readwrite" });
-              if (perm === "granted") {
-                await loadFromHandle(h, false);
-              } else {
-                const req = await h.requestPermission({ mode: "readwrite" });
-                if (req === "granted") await loadFromHandle(h, false);
-              }
-            }
-          } catch (_) {}
-          setLoaded(true);
-        })();
+        setCards(lsLoad());
+        setLoaded(true);
       }, []);
 
-      async function loadFromHandle(h, replaceCards = true) {
-        const file = await h.getFile();
-        const buf  = await file.arrayBuffer();
-        const wb   = XLSX.read(buf);
-        const imported = workbookToCards(wb);
-        if (replaceCards) setCards(imported);
-        setFileHandle(h);
-        setFileName(h.name);
-        await dbPut("fileHandle", h);
+      useEffect(() => {
+        if (!loaded) return;
+        lsSave(cards);
+        setDirty(true);
+      }, [cards, loaded]);
+
+      function downloadExcel() {
+        const buf  = buildXlsxBytes(cards);
+        const blob = new Blob([new Uint8Array(buf)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement("a");
+        a.href = url;
+        a.download = fileName || "card_ledger.xlsx";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        setFileName(fileName || "card_ledger.xlsx");
+        setDirty(false);
+        setSaveStatus("saved");
+        setTimeout(() => setSaveStatus(null), 2500);
       }
 
-      // ── auto-save whenever cards change (debounced 600 ms) ──
-      useEffect(() => {
-        if (!loaded || !fileHandle) return;
-        clearTimeout(saveTimer.current);
-        saveTimer.current = setTimeout(() => writeToFile(fileHandle, cards), 600);
-        return () => clearTimeout(saveTimer.current);
-      }, [cards, fileHandle, loaded]);
-
-      async function writeToFile(h, data) {
+      async function saveToFile() {
+        // On mobile, showSaveFilePicker isn't supported — go straight to download
+        if (!window.showSaveFilePicker || isMobile) {
+          downloadExcel();
+          return;
+        }
         try {
           setSaveStatus("saving");
-          const wb  = cardsToWorkbook(data);
-          const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" });
-          const writable = await h.createWritable();
+          const h = await window.showSaveFilePicker({
+            ...XLSX_OPTS,
+            suggestedName: fileName || "card_ledger.xlsx",
+          });
+          const buf      = buildXlsxBytes(cards);
+          const writable = await h.createWritable({ keepExistingData: false });
           await writable.write(new Uint8Array(buf));
           await writable.close();
+          setFileName(h.name);
+          setDirty(false);
           setSaveStatus("saved");
-          setTimeout(() => setSaveStatus(null), 2000);
+          setTimeout(() => setSaveStatus(null), 2500);
         } catch (e) {
-          setSaveStatus("error");
+          if (e.name === "AbortError") { setSaveStatus(null); return; }
+          setSaveStatus(null);
+          downloadExcel();
         }
       }
 
-      // ── open existing file ──
       async function openFile() {
+        // On mobile / unsupported browsers, use a hidden input
+        if (!window.showOpenFilePicker || isMobile) {
+          const input = document.createElement("input");
+          input.type = "file";
+          input.accept = ".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+          input.onchange = async (e) => {
+            const f = e.target.files?.[0];
+            if (!f) return;
+            try {
+              const buf = await f.arrayBuffer();
+              const wb  = XLSX.read(buf);
+              setCards(workbookToCards(wb));
+              setFileName(f.name);
+              setDirty(false);
+              setSaveStatus(null);
+            } catch (err) {
+              alert("Could not open file: " + err.message);
+            }
+          };
+          input.click();
+          return;
+        }
         try {
           const [h] = await window.showOpenFilePicker({ ...XLSX_OPTS, multiple: false });
-          await loadFromHandle(h, true);
+          const file = await h.getFile();
+          const buf  = await file.arrayBuffer();
+          const wb   = XLSX.read(buf);
+          setCards(workbookToCards(wb));
+          setFileName(h.name);
+          setDirty(false);
+          setSaveStatus(null);
         } catch (e) {
           if (e.name !== "AbortError") alert("Could not open file: " + e.message);
-        }
-      }
-
-      // ── create new blank file ──
-      async function newFile() {
-        try {
-          const h = await window.showSaveFilePicker({ ...XLSX_OPTS, suggestedName: "card_ledger.xlsx" });
-          setCards([]);
-          setFileHandle(h);
-          setFileName(h.name);
-          await dbPut("fileHandle", h);
-          await writeToFile(h, []);
-        } catch (e) {
-          if (e.name !== "AbortError") alert("Could not create file: " + e.message);
         }
       }
 
@@ -390,39 +717,49 @@ table.cl-tbl{border-collapse:collapse;width:100%;min-width:920px;}
         setCards(prev => prev.map(c => c.id === id ? { ...c, ...p } : c)), []);
 
       const processFiles = useCallback(async (fileList) => {
-        if (!apiKey.trim()) { alert("Enter your Anthropic API key first."); return; }
-        if (!fileHandle)    { alert("Open or create a ledger file first."); return; }
         const files = Array.from(fileList).filter(f => f.type.startsWith("image/"));
         if (!files.length) return;
         const entries = [];
         for (const f of files) {
           try {
             const { dataUrl, base64, mediaType } = await resizeImage(f);
-            entries.push({ id: uid(), thumb: dataUrl, base64, mediaType, status: "queued",
+            entries.push({ id: uid(), thumb: dataUrl, dataUrl, base64, mediaType, status: "queued",
               Name:"", Company:"", Title:"", Phone:"", Email:"", Address:"", Website:"" });
           } catch (_) {}
         }
         setCards(prev => [...entries, ...prev]);
+        const key = apiKey;
         await mapLimit(entries, CONCURRENCY, async (e) => {
           patch(e.id, { status: "processing" });
           try {
-            const fields = await extractCard(e.base64, e.mediaType, apiKey.trim());
-            patch(e.id, { ...fields, status: fields.Name ? "done" : "review", base64: undefined });
+            const fields = await extractCard(e.dataUrl, e.base64, e.mediaType, key);
+            patch(e.id, { ...fields, status: fields.Name ? "done" : "review", base64: undefined, dataUrl: undefined });
           } catch (err) {
-            patch(e.id, { status: "error", _err: String(err.message || err), base64: undefined });
+            patch(e.id, { status: "error", _err: String(err.message || err), base64: undefined, dataUrl: undefined });
           }
         });
-      }, [patch, apiKey, fileHandle]);
+      }, [patch, apiKey]);
 
       const onDrop = useCallback((e) => {
         e.preventDefault(); setOver(false);
         if (e.dataTransfer.files?.length) processFiles(e.dataTransfer.files);
       }, [processFiles]);
 
-      const saveApiKey = (k) => { setApiKey(k); localStorage.setItem("cl:apikey", k); };
-      const hasKey = apiKey.trim().startsWith("sk-ant-");
       const reviewCount     = cards.filter(c => c.status === "review" || c.status === "error").length;
       const processingCount = cards.filter(c => c.status === "processing" || c.status === "queued").length;
+
+      const renderStatusLabel = (c) => {
+        const scanning = c.status === "processing" || c.status === "queued";
+        return (
+          <span className={"cl-statuscell s-" + c.status}>
+            <span className="cl-dot" />
+            {c.status === "done"   && "ok"}
+            {c.status === "review" && "needs review"}
+            {c.status === "error"  && "error"}
+            {scanning && (c.status === "processing" ? "reading…" : "queued")}
+          </span>
+        );
+      };
 
       return (
         <div className="cl-root">
@@ -434,57 +771,74 @@ table.cl-tbl{border-collapse:collapse;width:100%;min-width:920px;}
                 <h1 className="cl-title">Card <em>Ledger</em></h1>
                 <div className="cl-sub">Vision-powered visiting-card capture — Excel</div>
               </div>
-              <div className="cl-mark"><Crosshair size={15} strokeWidth={1.5} /> Auto-saves to your file</div>
+              <div className="cl-mark"><Crosshair size={15} strokeWidth={1.5} /> Gemini · Claude · offline OCR</div>
             </header>
 
-            {/* ── file setup / status ── */}
-            {!fileHandle ? (
-              <div className="cl-setup">
-                <div className="t">Choose your ledger file</div>
-                <div className="row">
-                  <button className="cl-btn accent" onClick={newFile}>
-                    <FilePlus size={15} /> New ledger file
-                  </button>
-                  <button className="cl-btn ghost" onClick={openFile}>
-                    <FolderOpen size={15} /> Open existing .xlsx
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="cl-filebar">
-                <FileSpreadsheet size={15} style={{flexShrink:0, color:"var(--ok)"}} />
-                <span className="fname" title={fileName}>{fileName}</span>
-                {saveStatus === "saving" && <span className="badge badge-saving"><Loader2 size={10} className="spin" /> saving…</span>}
-                {saveStatus === "saved"  && <span className="badge badge-saved">✓ saved</span>}
-                {saveStatus === "error"  && <span className="badge badge-error">save failed</span>}
-                <button className="switch" onClick={openFile}>switch file</button>
-                <button className="switch" onClick={newFile}>new file</button>
-              </div>
-            )}
-
-            {/* ── API key ── */}
-            <div className="cl-apibar">
-              <span className={"dot " + (hasKey ? "dot-ok" : "dot-no")} />
-              <label htmlFor="apikey">Anthropic API Key</label>
-              <input id="apikey" type="password" placeholder="sk-ant-api03-…"
-                value={apiKey} onChange={e => saveApiKey(e.target.value)} spellCheck={false} />
-              <span className="hint">{hasKey ? "Saved in browser" : "Required to scan cards"}</span>
+            {/* ── file bar ── */}
+            <div className="cl-filebar">
+              <FileSpreadsheet size={15} style={{flexShrink:0, color: fileName ? "var(--ok)" : "var(--ink-soft)"}} />
+              <span className="fname">{fileName || "No file chosen"}</span>
+              {saveStatus === "saving" && (
+                <span className="badge badge-saving">
+                  <Loader2 size={10} className="spin" style={{verticalAlign:"-1px",marginRight:4}}/>saving…
+                </span>
+              )}
+              {saveStatus === "saved" && <span className="badge badge-saved">✓ saved</span>}
+              {dirty && saveStatus !== "saving" && saveStatus !== "saved" && fileName && (
+                <span className="badge badge-saving">unsaved</span>
+              )}
+              <button className="cl-btn accent" style={{padding:"8px 14px",fontSize:"11.5px",minHeight:"38px"}}
+                onClick={saveToFile} disabled={!cards.length}>
+                <FileSpreadsheet size={13}/> {isMobile ? "Save" : "Save to Excel"}
+              </button>
+              <button className="sw" onClick={openFile}>open existing</button>
             </div>
+
+            {/* ── API key bar ── */}
+            {(() => {
+              const k = apiKey.trim();
+              const isGemini  = k.startsWith("AIza");
+              const isClaude  = k.startsWith("sk-ant-");
+              const hasKey    = isGemini || isClaude;
+              const hint = hasKey
+                ? (isGemini ? "✓ Gemini 2.0 Flash — free tier, ~1500 scans/day" : "✓ Claude Haiku — paid per scan")
+                : "No key → offline OCR (less accurate). Get a free Gemini key at aistudio.google.com";
+              return (
+                <div className="cl-apibar">
+                  <span className={"dot " + (hasKey ? "dot-ok" : "dot-warn")} />
+                  <label htmlFor="apikey">API Key</label>
+                  <input id="apikey" type="password"
+                    placeholder="AIza… (Gemini)  or  sk-ant-… (Claude)"
+                    value={apiKey}
+                    onChange={e => { setApiKey(e.target.value); localStorage.setItem("cl:apikey", e.target.value); }}
+                    spellCheck={false}
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off" />
+                  <span className="hint">{hint}</span>
+                </div>
+              );
+            })()}
 
             {/* ── action buttons ── */}
             <div className="cl-bar">
-              <button className="cl-btn" onClick={() => batchRef.current?.click()} disabled={!fileHandle}>
-                <Upload size={15} /> Upload images
+              <button className="cl-btn" onClick={() => batchRef.current?.click()}>
+                <Upload size={15} /> {isMobile ? "Photos" : "Upload images"}
               </button>
-              <button className="cl-btn ghost" onClick={() => camRef.current?.click()} disabled={!fileHandle}>
-                <Camera size={15} /> Scan with camera
+              <button className="cl-btn ghost" onClick={() => camRef.current?.click()}>
+                <Camera size={15} /> {isMobile ? "Camera" : "Scan with camera"}
               </button>
               {cards.length > 0 && (
-                <button className="cl-btn danger" onClick={() => {
-                  if (confirm("Clear all cards from the ledger?")) setCards([]);
-                }}>
-                  <Eraser size={15} /> Clear all
-                </button>
+                <>
+                  <button className="cl-btn ghost" onClick={downloadExcel}>
+                    <Download size={15} /> {isMobile ? "Download" : "Download Excel"}
+                  </button>
+                  <button className="cl-btn danger" onClick={() => {
+                    if (confirm("Clear all cards from the ledger?")) setCards([]);
+                  }}>
+                    <Eraser size={15} /> Clear all
+                  </button>
+                </>
               )}
             </div>
 
@@ -493,14 +847,16 @@ table.cl-tbl{border-collapse:collapse;width:100%;min-width:920px;}
             <input ref={camRef} type="file" accept="image/*" capture="environment" style={{display:"none"}}
               onChange={e => { processFiles(e.target.files); e.target.value = ""; }} />
 
-            <div className={"cl-drop" + (over ? " over" : "")}
-              onClick={() => fileHandle && batchRef.current?.click()}
-              onDragOver={e => { e.preventDefault(); setOver(true); }}
-              onDragLeave={() => setOver(false)}
-              onDrop={onDrop}>
-              <div className="cl-drop-t">Drop card photos here</div>
-              <div className="cl-drop-s">one card per image · batch-drop a folder · jpg / png / heic</div>
-            </div>
+            {!isMobile && (
+              <div className={"cl-drop" + (over ? " over" : "")}
+                onClick={() => batchRef.current?.click()}
+                onDragOver={e => { e.preventDefault(); setOver(true); }}
+                onDragLeave={() => setOver(false)}
+                onDrop={onDrop}>
+                <div className="cl-drop-t">Drop card photos here</div>
+                <div className="cl-drop-s">one card per image · batch-drop a folder · jpg / png / heic</div>
+              </div>
+            )}
 
             <div className="cl-stats">
               <span><b>{cards.length}</b> cards</span>
@@ -510,48 +866,61 @@ table.cl-tbl{border-collapse:collapse;width:100%;min-width:920px;}
               {reviewCount > 0 && <span className="rev"><b>{reviewCount}</b> need review</span>}
             </div>
 
-            <div className="cl-tablewrap">
-              {cards.length === 0 ? (
-                <div className="cl-empty">
-                  <div className="ico"><ScanLine size={46} strokeWidth={1.2} /></div>
-                  <div className="t">Your ledger is empty</div>
-                  <div className="s">Upload or snap a card — fields fill themselves in and save automatically.</div>
+            {/* ═══════════════ MOBILE CARD LIST ═══════════════ */}
+            {isMobile ? (
+              cards.length === 0 ? (
+                <div className="cl-tablewrap">
+                  <div className="cl-empty">
+                    <div className="ico"><ScanLine size={44} strokeWidth={1.2} /></div>
+                    <div className="t">Your ledger is empty</div>
+                    <div className="s">Tap <b>Camera</b> to snap a card, or <b>Photos</b> to upload from your gallery.</div>
+                  </div>
                 </div>
               ) : (
-                <table className="cl-tbl">
-                  <thead>
-                    <tr>
-                      <th></th>
-                      <th>Status</th>
-                      {FIELDS.map(f => <th key={f}>{f}</th>)}
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cards.map(c => {
-                      const scanning = c.status === "processing" || c.status === "queued";
-                      return (
-                        <tr key={c.id}>
-                          <td>
-                            <div className={"cl-thumb" + (scanning ? " cl-scan" : "")}>
-                              {c.thumb
-                                ? <img src={c.thumb} alt="" />
-                                : <span className="ph"><ScanLine size={15} /></span>}
+                <div className="cl-mcards">
+                  {cards.map(c => {
+                    const scanning = c.status === "processing" || c.status === "queued";
+                    const expanded = expandedId === c.id;
+                    const rawLines = c._rawLines || [];
+                    const displayName = c.Name || c.Company || (scanning ? "Reading card…" : "Untitled");
+                    return (
+                      <div className="cl-mcard" key={c.id}>
+                        <div className="cl-mcard-head">
+                          <div className={"cl-mcard-thumb" + (scanning ? " cl-scan" : "")}>
+                            {c.thumb ? <img src={c.thumb} alt="" /> : <span className="ph"><ScanLine size={16} /></span>}
+                          </div>
+                          <div className="cl-mcard-status">
+                            {renderStatusLabel(c)}
+                            <div className={"cl-mcard-title" + (!c.Name && !c.Company ? " empty" : "")}>{displayName}</div>
+                          </div>
+                          <div className="cl-mcard-actions">
+                            <button className="cl-x" title="Remove"
+                              onClick={() => {
+                                if (confirm("Remove this card?")) {
+                                  setCards(prev => prev.filter(x => x.id !== c.id));
+                                }
+                              }}>
+                              <Trash size={16} />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="cl-mcard-body">
+                          {c.status === "error" && (
+                            <div style={{fontFamily:"var(--m)",fontSize:"11px",color:"var(--err)",padding:"8px 0"}}>
+                              ⚠ {c._err}
                             </div>
-                          </td>
-                          <td>
-                            <span className={"cl-statuscell s-" + c.status}>
-                              <span className="cl-dot" />
-                              {c.status === "done"       && "ok"}
-                              {c.status === "review"     && "review"}
-                              {c.status === "error"      && "error"}
-                              {scanning && (c.status === "processing" ? "reading" : "queued")}
-                            </span>
-                            {c.status === "error" && <div className="cl-err-msg">{c._err}</div>}
-                          </td>
+                          )}
                           {FIELDS.map(f => (
-                            <td key={f} className={"cl-cell" + (f === "Name" ? " name" : "")}>
+                            <div key={f} className={"cl-mfield" + (f === "Name" ? " name" : "")}>
+                              <label className="cl-mfield-label">{f}</label>
                               <input
+                                className="cl-mfield-input"
+                                type={f === "Email" ? "email" : f === "Phone" ? "tel" : f === "Website" ? "url" : "text"}
+                                inputMode={f === "Phone" ? "tel" : f === "Email" ? "email" : f === "Website" ? "url" : "text"}
+                                autoComplete="off"
+                                autoCorrect={f === "Email" || f === "Website" ? "off" : "on"}
+                                autoCapitalize={f === "Email" || f === "Website" ? "off" : "words"}
                                 value={c[f] || ""}
                                 placeholder={scanning ? "…" : "—"}
                                 onChange={e => patch(c.id, {
@@ -559,25 +928,147 @@ table.cl-tbl{border-collapse:collapse;width:100%;min-width:920px;}
                                   status: c.status === "review" && f === "Name" && e.target.value ? "done" : c.status,
                                 })}
                               />
-                            </td>
+                            </div>
                           ))}
-                          <td>
-                            <button className="cl-x" title="Remove"
-                              onClick={() => setCards(prev => prev.filter(x => x.id !== c.id))}>
-                              <X size={15} />
+                        </div>
+
+                        {!scanning && rawLines.length > 0 && (
+                          <>
+                            <button className="cl-mcard-expand"
+                              onClick={() => setExpandedId(expanded ? null : c.id)}>
+                              {expanded ? <ChevronUp size={12}/> : <ChevronDown size={12}/>}
+                              {expanded ? "hide raw OCR" : "show raw OCR (" + rawLines.length + " lines)"}
                             </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
+                            {expanded && (
+                              <div className="cl-mraw">
+                                <div className="cl-mraw-label">
+                                  Tap a field button to assign that line's text to that field:
+                                </div>
+                                {rawLines.map((line, i) => (
+                                  <div key={i} className="cl-mraw-item">
+                                    <div className="cl-mraw-text">{line}</div>
+                                    <div className="cl-mraw-btns">
+                                      {FIELDS.map(f => (
+                                        <button key={f} className="cl-qfbtn"
+                                          onClick={() => patch(c.id, {
+                                            [f]: line,
+                                            status: f === "Name" && line ? "done" : c.status,
+                                          })}>
+                                          {f}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )
+            ) : (
+              /* ═══════════════ DESKTOP TABLE ═══════════════ */
+              <div className="cl-tablewrap">
+                {cards.length === 0 ? (
+                  <div className="cl-empty">
+                    <div className="ico"><ScanLine size={46} strokeWidth={1.2} /></div>
+                    <div className="t">Your ledger is empty</div>
+                    <div className="s">Upload or snap a card — fields fill themselves in and save automatically.</div>
+                  </div>
+                ) : (
+                  <table className="cl-tbl">
+                    <thead>
+                      <tr>
+                        <th></th><th>Status</th>
+                        {FIELDS.map(f => <th key={f}>{f}</th>)}
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cards.map(c => {
+                        const scanning = c.status === "processing" || c.status === "queued";
+                        const expanded = expandedId === c.id;
+                        const rawLines = c._rawLines || [];
+                        return (
+                          <React.Fragment key={c.id}>
+                            <tr>
+                              <td>
+                                <div className={"cl-thumb" + (scanning ? " cl-scan" : "")}>
+                                  {c.thumb ? <img src={c.thumb} alt="" /> : <span className="ph"><ScanLine size={15} /></span>}
+                                </div>
+                              </td>
+                              <td>
+                                {renderStatusLabel(c)}
+                                {c.status === "error" && <div className="cl-err-msg">{c._err}</div>}
+                              </td>
+                              {FIELDS.map(f => (
+                                <td key={f} className={"cl-cell" + (f === "Name" ? " name" : "")}>
+                                  <input value={c[f] || ""} placeholder={scanning ? "…" : "—"}
+                                    onChange={e => patch(c.id, {
+                                      [f]: e.target.value,
+                                      status: c.status === "review" && f === "Name" && e.target.value ? "done" : c.status,
+                                    })} />
+                                </td>
+                              ))}
+                              <td style={{whiteSpace:"nowrap"}}>
+                                {!scanning && rawLines.length > 0 && (
+                                  <button className="cl-x" title="Show raw OCR text"
+                                    onClick={() => setExpandedId(expanded ? null : c.id)}>
+                                    {expanded ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
+                                  </button>
+                                )}
+                                <button className="cl-x" title="Remove"
+                                  onClick={() => setCards(prev => prev.filter(x => x.id !== c.id))}>
+                                  <X size={15} />
+                                </button>
+                              </td>
+                            </tr>
+
+                            {expanded && (
+                              <tr className="cl-rawrow">
+                                <td colSpan={FIELDS.length + 3}>
+                                  <div className="cl-rawpanel">
+                                    {c.thumb && <img src={c.thumb} alt="" className="cl-rawimg"/>}
+                                    <div className="cl-rawtext">
+                                      <div className="cl-rawlabel">Every line Tesseract detected — click a line to assign it to a field:</div>
+                                      <div className="cl-qfwrap">
+                                        {rawLines.map((line, i) => (
+                                          <div key={i} className="cl-qfrow">
+                                            <span className="cl-qfline">{line}</span>
+                                            {FIELDS.map(f => (
+                                              <button key={f} className="cl-qfbtn"
+                                                title={"Set " + f + " = " + line}
+                                                onClick={() => patch(c.id, {
+                                                  [f]: line,
+                                                  status: f === "Name" && line ? "done" : c.status,
+                                                })}>
+                                                {f}
+                                              </button>
+                                            ))}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
 
             <div className="cl-foot">
-              Every scan, edit, and delete is written directly to <b>{fileName || "your ledger file"}</b> — no manual export needed.
-              Click any cell to correct what the model missed.
+              With an API key: high-accuracy field extraction. <b>Gemini key is free</b> (1,500 scans/day, no billing) —
+              get one in 30 s at <b>aistudio.google.com</b>. Without a key: Tesseract OCR runs offline.
+              {isMobile ? " Tap show raw OCR on any card" : " Click ▾ on any row"} to see detected lines and assign them to fields in one tap.
             </div>
           </div>
         </div>
